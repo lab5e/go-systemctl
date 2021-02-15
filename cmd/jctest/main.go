@@ -28,11 +28,9 @@ func main() {
 		if err != nil {
 			panic(err.Error())
 		}
-		if len(entries) > 0 {
+		for _, v := range entries {
+			fmt.Println(v)
 			lastCursor = entries[0].Cursor
-			for _, v := range entries {
-				fmt.Println(v)
-			}
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
