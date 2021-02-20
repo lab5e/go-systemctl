@@ -40,8 +40,11 @@ type Systemctl interface {
 	// State returns unit file, active and substate for the unit.
 	State(unitName string) (UnitFileState, ActiveState, SubState, error)
 
-	// Restart restarts the unit
+	// Restart restarts the unit (or starts a stopped unit)
 	Restart(unitName string) error
+
+	// Stop stops the unit
+	Stop(unitName string) error
 }
 
 // UnitName converts a service name into a unit name in the systemd lingo
@@ -92,6 +95,17 @@ func (s *system) State(unit string) (UnitFileState, ActiveState, SubState, error
 // Restart call systemctl restart <unit> -- if there's an error the exit
 // code will hint at what the issue is (see systemctl(1) man page for exit codes)
 func (s *system) Restart(unit string) error {
-	_, err := exec.Command("systemctl", "restart", unit).Output()
+	buf, err := exec.Command("systemctl", "restart", unit).Output()
+	if err != nil {
+		fmt.Println("Error restarting: ", string(buf))
+	}
+	return err
+}
+
+func (s *system) Stop(unit string) error {
+	buf, err := exec.Command("systemctl", "stop", unit).Output()
+	if err != nil {
+		fmt.Println("Error stopping: ", string(buf))
+	}
 	return err
 }
