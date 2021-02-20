@@ -40,7 +40,8 @@ type Systemctl interface {
 	// State returns unit file, active and substate for the unit.
 	State(unitName string) (UnitFileState, ActiveState, SubState, error)
 
-	// Restart restarts the unit (or starts a stopped unit)
+	// Restart call systemctl restart <unit> -- if there's an error the exit
+	// code will hint at what the issue is (see systemctl(1) man page for exit codes)
 	Restart(unitName string) error
 
 	// Stop stops the unit
@@ -53,7 +54,7 @@ func UnitName(service string) string {
 	return service + ".service"
 }
 
-// NewSystemctl returns a dummy implementation
+// NewSystemctl returns a systemctl implementation
 func NewSystemctl() Systemctl {
 	return &system{}
 }
@@ -61,7 +62,6 @@ func NewSystemctl() Systemctl {
 type system struct {
 }
 
-// State retrieves the current state of the unit via systemctl
 func (s *system) State(unit string) (UnitFileState, ActiveState, SubState, error) {
 	buf, err := exec.Command("systemctl", "show", unit, "--no-page").Output()
 	if err != nil {
@@ -92,8 +92,6 @@ func (s *system) State(unit string) (UnitFileState, ActiveState, SubState, error
 	return unitState, activeState, subState, nil
 }
 
-// Restart call systemctl restart <unit> -- if there's an error the exit
-// code will hint at what the issue is (see systemctl(1) man page for exit codes)
 func (s *system) Restart(unit string) error {
 	buf, err := exec.Command("systemctl", "restart", unit).Output()
 	if err != nil {
