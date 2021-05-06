@@ -25,12 +25,13 @@ const (
 
 // Entry is a single entry from journald
 type Entry struct {
-	Cursor     string   `json:"__CURSOR"`                    // The __CURSOR field
-	Timestamp  int64    `json:"__REALTIME_TIMESTAMP,string"` // The __REALTIME__TIMESTAMP field (microseconds since epoch)
-	Message    string   `json:"MESSAGE"`                     // The MESSAGE field
-	Unit       string   `json:"_SYSTEMD_UNIT"`               // The _SYSTEMD_UNIT field
-	Priority   Priority `json:"PRIORITY"`                    // The PRIORITY field
-	UnitResult string   `json:"UNIT_RESULT"`                 // The UNIT_RESULT field. This is set if the service has terminated for some reason. It is empty otherwise
+	Cursor        string      `json:"__CURSOR"`                    // The __CURSOR field
+	Timestamp     int64       `json:"__REALTIME_TIMESTAMP,string"` // The __REALTIME__TIMESTAMP field (microseconds since epoch)
+	Message       string      `json:"-"`                           // The string representation of the message source.
+	MessageSource interface{} `json:"MESSAGE"`                     // The MESSAGE field. This might be an array of bytes *or* a string
+	Unit          string      `json:"_SYSTEMD_UNIT"`               // The _SYSTEMD_UNIT field
+	Priority      Priority    `json:"PRIORITY"`                    // The PRIORITY field
+	UnitResult    string      `json:"UNIT_RESULT"`                 // The UNIT_RESULT field. This is set if the service has terminated for some reason. It is empty otherwise
 }
 
 // IsEmpty returns true if this is an empty entry
@@ -95,6 +96,12 @@ func (j *journal) EntriesAfter(unit string, cursor string) ([]Entry, error) {
 		var elem Entry
 		if err := json.Unmarshal([]byte(line), &elem); err != nil {
 			return ret, err
+		}
+		switch f := elem.MessageSource.(type) {
+		case string:
+			elem.Message = f
+		default:
+			elem.Message = ""
 		}
 		elem.Timestamp *= int64(time.Microsecond)
 		ret = append(ret, elem)
