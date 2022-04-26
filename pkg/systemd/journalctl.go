@@ -32,6 +32,8 @@ type Entry struct {
 	Unit          string      `json:"_SYSTEMD_UNIT"`               // The _SYSTEMD_UNIT field
 	Priority      Priority    `json:"PRIORITY"`                    // The PRIORITY field
 	UnitResult    string      `json:"UNIT_RESULT"`                 // The UNIT_RESULT field. This is set if the service has terminated for some reason. It is empty otherwise
+	Valid         bool        `json:"-"`                           // Valid JSON when decoding
+	SourceData    string      `json:"-"`                           // The source JSON. This might be invalid.
 }
 
 // IsEmpty returns true if this is an empty entry
@@ -49,7 +51,7 @@ func (e Entry) String() string {
 type Journalctl interface {
 	// Entries returns the last entry in the journal. If there is no entries
 	// an empty entry will be returned
-	LastEntry(unit string) (*Entry, error)
+	LastEntry(unit string) (Entry, error)
 
 	// EntriesAfter returns entries after the specified cursor position. The
 	// newest entry is returned first. If the cursor parameter is empty the
@@ -66,14 +68,18 @@ type journal struct {
 }
 
 // LastEntry calls the command journalctl -u <unit> -n 1 -o json and parses the output
-func (j *journal) LastEntry(unit string) (*Entry, error) {
-	ret := &Entry{}
+func (j *journal) LastEntry(unit string) (Entry, error) {
+	ret := Entry{Valid: true}
 	buf, err := exec.Command("journalctl", "-u", unit, "-n", "1", "-o", "json").Output()
 	if err != nil {
+		ret.Valid = false
 		return ret, err
 	}
-
-	return ret, json.Unmarshal(buf, ret)
+	ret.SourceData = string(buf)
+	if err := json.Unmarshal(buf, &ret); err != nil {
+		ret.Valid = false
+	}
+	return ret, nil
 }
 
 // EntriesAfter calls journalctl -r -u <unit> -n 1000 -o json [--after-cursor <cursor>]
@@ -93,15 +99,20 @@ func (j *journal) EntriesAfter(unit string, cursor string) ([]Entry, error) {
 		if line == "" {
 			continue
 		}
-		var elem Entry
+		elem := Entry{Valid: true, SourceData: line}
 		if err := json.Unmarshal([]byte(line), &elem); err != nil {
-			return ret, err
+			elem.Valid = false
+			ret = append(ret, elem)
+			continue
 		}
 		switch f := elem.MessageSource.(type) {
 		case string:
 			elem.Message = f
 		default:
 			elem.Message = ""
+		}
+		if cursor != "" && elem.Cursor == cursor {
+			continue
 		}
 		elem.Timestamp *= int64(time.Microsecond)
 		ret = append(ret, elem)

@@ -20,7 +20,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	fmt.Println("Last entry = ", entry)
+	fmt.Printf("Last entry %+v\n", entry)
 
 	lastCursor := entry.Cursor
 	for {
@@ -29,7 +29,7 @@ func main() {
 			panic(err.Error())
 		}
 		for _, v := range entries {
-			fmt.Println(v)
+			fmt.Printf("%t -- %+v\n", v.Valid, v)
 			lastCursor = entries[0].Cursor
 		}
 		time.Sleep(500 * time.Millisecond)
